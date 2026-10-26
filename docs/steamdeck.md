@@ -7,6 +7,9 @@ Steam Deck graphics, performance and controls still require testing on hardware.
 
 ## Minimal setup
 
+[Download the native candidate](https://github.com/negroISO/doax3-scarlet-pc/releases/tag/steamdeck-native-2026.10.26).
+The TAR.GZ and ZIP contain the same app. Checksum files accompany both.
+
 1. Switch to Desktop Mode once and extract the complete native archive.
 2. Open `DOAX3-Scarlet/Install-DOAX3.desktop`. Allow/trust launching if KDE asks.
 3. Check the detected game/module folders, or select them with Browse.
@@ -63,6 +66,7 @@ when transferring through Linux because it preserves executable permissions.
 An archive is not a Valve store installation or a Deck Verified certification.
 
 Source/build details: [native packaging instructions](../source/packaging/steamdeck/BUILD.md).
+Recorded checks and hardware limits: [steamdeck-validation.json](steamdeck-validation.json).
 Each app includes `share/source-version.json`, dependency locks, notices,
 `LICENSE` and `SOURCES.txt`. The source revision links to the corresponding
 public repository snapshot. Build-machine paths are removed from compiled

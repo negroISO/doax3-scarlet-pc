@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-26",
+  "status": "BUILD_AND_PACKAGE_CHECKS_PASS",
+  "edition": "Scarlet",
+  "source_revision": "e544377fab63a50b9f8b63818dfef3bac1da4386",
+  "release_tag": "steamdeck-native-2026.10.26",
+  "platform": "native-linux-x86_64",
+  "native_runtime_sha256": "2ac02431b451bd68620fdb40cc61d5eac622f8fac195d696644ac2836761e1c1",
+  "linked_game_image_sha256": "40b0ed022232c6f462fcd12d3a49b92a293ccf60fe5580d070443791940be9a7",
+  "maximum_required_glibc_symbol": "2.34",
+  "bundled_dependency_libraries": 71,
+  "package_files": 768,
+  "frozen_modules_privacy_checked": 237,
+  "native_scene_resolution": [1920, 1080],
+  "fps_cap": 30,
+  "proton": false,
+  "neural_rendering": false,
+  "frame_generation": false,
+  "checks": {
+    "fresh_linux_runtime_build": "PASS",
+    "seven_installer_unit_and_desktop_parser_tests_on_linux": "PASS",
+    "twelve_existing_steam_shortcut_tests": "PASS",
+    "native_elf_cpu_and_frozen_tcl_startup": "PASS",
+    "build_sdk_and_prefix_hidden_by_mount_namespace": "PASS",
+    "vulkan_submission_and_4096_byte_readback": "PASS on NVIDIA TITAN X Pascal build host",
+    "relocation_to_path_with_spaces": "PASS",
+    "existing_install_refused_and_savedata_preserved": "PASS",
+    "real_installer_preparation_with_supplied_game_and_modules": "PASS",
+    "isolated_steam_entry_backup_and_unrelated_game_preservation": "PASS",
+    "zip_crc_and_tar_payload_sha256": "PASS",
+    "local_archive_and_transfer_application_file_hashes": "PASS",
+    "private_paths_identifiers_and_frozen_code_filenames": "PASS",
+    "game_firmware_windows_binary_payload_exclusion": "PASS"
+  },
+  "limits": [
+    "No actual Steam Deck was connected for testing.",
+    "No new full Linux gameplay, pool/minigame, sound, AMD graphics or Deck controller session is claimed.",
+    "GPU probe and game-image preparation are not proof of correct full-game rendering or 30 FPS on Steam Deck.",
+    "The graphical installer logic and desktop command parsing were tested; a complete SteamOS desktop UI session remains device validation.",
+    "Game assets and three required PS4 modules must be supplied separately from public app archives."
+  ]
+}
