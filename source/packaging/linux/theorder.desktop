@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=DOAX3 Scarlet
+Comment=PC port of DOAX3 Scarlet (bring your own game dump)
+Exec=AppRun
+Icon=doax3
+Categories=Game;
+Terminal=false
+StartupWMClass=doax3

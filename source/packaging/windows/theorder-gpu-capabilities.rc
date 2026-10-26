@@ -1,0 +1,4 @@
+1 ICON "../../launcher/doax3.ico"
+#define DOAX3_DESCRIPTION "DOAX3 Scarlet GPU capabilities"
+#define DOAX3_FILENAME "theorder-gpu-capabilities.exe"
+#include "doax3-version.rcinc"

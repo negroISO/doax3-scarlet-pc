@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-26",
+  "scope": "Clean source export build + portable Windows startup validation; startup tests do not establish full scene rendering or neural evaluations.",
+  "source_snapshot": "a4aa8986f27fc71e81d015886113ef0b0d8e9c3e plus recorded local VideoOut/FSR changes",
+  "host_build": "PASS: fresh Clang/Ninja build from this export",
+  "bridge_build": "PASS: fresh MSVC x64 build of port_dlss and port_nr",
+  "sdk_revision": "9981c6350dc58c0ce21f024fd65e31e851c31689",
+  "guest_image_matches_original": true,
+  "startup_seconds": 12,
+  "runs": [
+    {
+      "run": "20261026-113540-077386",
+      "exit": 0,
+      "neural": "0",
+      "neural_success_messages": 0,
+      "host_sha256": "0219b6d600d44e54bb744cb7260227158044d5e45125dd9dca9b9f15870d7cb2",
+      "linked_sha256": "40b0ed022232c6f462fcd12d3a49b92a293ccf60fe5580d070443791940be9a7"
+    },
+    {
+      "run": "20261026-113902-511392",
+      "exit": 0,
+      "neural": "1",
+      "neural_success_messages": 0,
+      "host_sha256": "0219b6d600d44e54bb744cb7260227158044d5e45125dd9dca9b9f15870d7cb2",
+      "linked_sha256": "40b0ed022232c6f462fcd12d3a49b92a293ccf60fe5580d070443791940be9a7"
+    }
+  ],
+  "staged_repository_audit": {
+    "status": "PASS",
+    "files": 2297,
+    "bytes": 71083862,
+    "source_manifest_files": 2274,
+    "screenshots": 2,
+    "problems": []
+  },
+  "notes": [
+    "No original production save/cache changes.",
+    "Game/system-module files, generated guest images, build outputs, optional DLLs and SDKs are ignored and excluded from Git.",
+    "Historical gameplay screenshots and detailed scene performance remain dated evidence from the original project."
+  ]
+}

@@ -1,0 +1,7 @@
+#include <winuser.h>
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "theorder-probe.manifest"
+// The first icon is the one Explorer and the game window show.
+1 ICON "../../launcher/doax3.ico"
+#define DOAX3_DESCRIPTION "DOAX3 Scarlet native runtime"
+#define DOAX3_FILENAME "theorder-probe.exe"
+#include "doax3-version.rcinc"

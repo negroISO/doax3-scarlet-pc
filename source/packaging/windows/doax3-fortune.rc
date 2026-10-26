@@ -1,0 +1,9 @@
+#include <winuser.h>
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "theorder-probe.manifest"
+1 ICON "../../launcher/doax3-fortune.ico"
+#define DOAX3_DESCRIPTION "DOAX3 Fortune native runtime"
+#define DOAX3_FILENAME "doax3-fortune.exe"
+#define DOAX3_PRODUCT "DOAX3 Fortune"
+#define DOAX3_RESOURCE_VERSION 1,19,0,0
+#define DOAX3_VERSION_STRING "1.19 candidate"
+#include "doax3-version.rcinc"

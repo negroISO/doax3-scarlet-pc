@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-26",
+  "status": "PASS",
+  "scope": "Tracked-file privacy audit and relocated fresh source/build/startup checks; not an independent Windows VM or Steam Deck test.",
+  "source_inputs": "Tracked repository files only; no local.json, existing build outputs, user state or runtime images.",
+  "external_inputs": ["Documented compiler/runtime dependencies", "Explicit matching extracted base+update game data", "Explicit compatible PS4 system modules"],
+  "optional_neural": "Separate SDK, compiler and runtime inputs; not needed for native launch.",
+  "checks": [
+    {"name": "tracked privacy, payload, credential and local-link audit", "result": "PASS"},
+    {"name": "same portability fixes in both editions", "result": "PASS"},
+    {"name": "changed Python syntax and three changed shell scripts", "result": "PASS"},
+    {"name": "sample report and CPU instruction-policy regression tests", "result": "PASS", "tests": 5, "scope": "Shared code tested in Fortune; corresponding changed files are identical in Scarlet."},
+    {"name": "privacy pattern positive and negative controls", "result": "PASS", "rejected_private_cases": 5, "allowed_standard_cases": 4},
+    {"name": "legacy timed/batch diagnostics without game input", "result": "PASS", "behavior": "Reject before running diagnostics."},
+    {"name": "Linux helpers without an explicit workspace", "result": "PASS", "behavior": "Reject before SDK or mount operations."},
+    {"name": "fresh tracked-file source export in a relocated path with spaces", "result": "PASS", "copied_local_configuration_or_build_output": false},
+    {"name": "full Windows host and helper build", "result": "PASS", "build_exit_code": 0, "host_sha256": "6b33f24f75d702ed00f37df3b463e9defdc30851a2c08310dc42d6ff5b6104e2"},
+    {"name": "explicit-input launcher check and full guest-image regeneration", "result": "PASS", "linked_sha256": "40b0ed022232c6f462fcd12d3a49b92a293ccf60fe5580d070443791940be9a7", "matches_prior_validated_image": true},
+    {"name": "native root CMD launcher with newly created user/cache state", "result": "PASS", "timeout_seconds": 15, "exit_code": 0, "flip_log_lines": 74, "fault_log_lines": 0, "neural_enabled": false},
+    {"name": "NR requested without optional runtime DLLs", "result": "PASS", "behavior": "Clear missing-dependency error, no implicit search of another installation."}
+  ],
+  "limits": [
+    "Used an explicitly selected existing MSYS2 installation and existing extracted game/module inputs; did not reinstall Windows or extract encrypted PKGs.",
+    "No copied local.json, source/out, runtime, user, save or cache directories were present before the relocated build.",
+    "An initial deeply nested export hit Windows filename-length limits. Validation succeeded at a shorter path containing spaces; Git long-path guidance is documented.",
+    "The 15-second runs establish native startup/presentation only, not full title/menu/gameplay or NR image quality.",
+    "Optional NR bridge/runtime and full native Linux/Steam Deck gameplay were not rebuilt or retested by this audit.",
+    "The public repository begins with a sanitized source snapshot; earlier development commits are excluded. Copyright/public attribution and intentional repository URLs remain."
+  ]
+}

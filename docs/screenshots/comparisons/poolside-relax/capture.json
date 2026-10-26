@@ -1,0 +1,87 @@
+{
+  "description": "Scarlet 1.08 Poolside Relax: matched facial, hair and shoulder detail",
+  "capture_run": "scarlet-108-nr-native-warm-character-1",
+  "capture_prefix": "nr_001",
+  "started_utc": "2026-10-26T00:12:17.103906+00:00",
+  "scheduled_seconds_after_launch": 210.0,
+  "pairing": "same frame, copies immediately before and after the native NR pass, before UI composition",
+  "labels": {
+    "native": "native scene buffer immediately before NR; not an independently launched NR-off run",
+    "nr": "same frame after the experimental Feature18 NR pass"
+  },
+  "dimensions": [
+    1920,
+    1080
+  ],
+  "raw_byte_layout": "BGRA8",
+  "nr_strength": "default1",
+  "object_motion": "1",
+  "frame_generation": false,
+  "host_sha256": "da8f3ffe18e01dae66e9af3f28f59634da8cd1ab1de2e57034fd675f73d20ae9",
+  "guest_sha256": "40b0ed022232c6f462fcd12d3a49b92a293ccf60fe5580d070443791940be9a7",
+  "runtime_libraries": {
+    "port_dlss.dll": {
+      "sha256": "e629c92548684c2ef54710641642917a4965fb54033a97491141f9a3b5fb1c30"
+    },
+    "nvngx.dll/port_nr.dll": {
+      "sha256": "c4b99b3b4b91d37d97f9513d573b6e06d00b1df34d8f3d086d1bf0d20d2e2072"
+    },
+    "nvngx_dlss.dll": {
+      "sha256": "2ecf41de71383416a5fb1476d26d495fc391fdc254d6e5a27689b598b2d05702"
+    },
+    "nvngx_dlssnr.dll": {
+      "sha256": "8270b350cd82de5ce89806872cdd6b6a9249b80836b91bbeb3573470744cc206"
+    }
+  },
+  "raw_sources": {
+    "before": {
+      "file": "nr_001_before_rgba8_1920x1080.raw",
+      "sha256": "28ed82f361c263c7c707e9236ba2407988dfc0ea11d5b9600c06d07f1519acb0"
+    },
+    "after": {
+      "file": "nr_001_after_rgba8_1920x1080.raw",
+      "sha256": "a30b01adb8aa0a6f3fd901883e6db0f07dc8ada9ada3860d710cf26ec694d0ba"
+    }
+  },
+  "processing": "lossless BGRA-to-RGB PNG conversion; identical integer pixel crops; no resizing, sharpening, color grading or generative editing",
+  "difference_sanity_check": {
+    "mean_absolute_rgb_delta_0_to_255": 14.110689621913581,
+    "changed_pixel_fraction": 0.9999893904320988,
+    "note": "measures changed pixels, not image quality"
+  },
+  "successful_nr_log_messages": 40,
+  "exported_files": {
+    "native.png": {
+      "sha256": "5fb9ba36dfd5bcc95589560d026f342e6c9d75b81c4239cc1a66d76ed41b2be2",
+      "width": 1920,
+      "height": 1080
+    },
+    "native-face.png": {
+      "sha256": "4e160b4eeef1327db2fbf833f5874603b7c3113bf5a21037e0b97fb095da6e90",
+      "width": 390,
+      "height": 410,
+      "source_box_xyxy": [
+        880,
+        30,
+        1270,
+        440
+      ]
+    },
+    "nr.png": {
+      "sha256": "dab093694647f4d6b29af0371755bf04d17072b308a59b531fa5c0806eecad77",
+      "width": 1920,
+      "height": 1080
+    },
+    "nr-face.png": {
+      "sha256": "994f545bd4d7120e3ef62f19e6631513bacfc085619e9b63830773ead8f95a80",
+      "width": 390,
+      "height": 410,
+      "source_box_xyxy": [
+        880,
+        30,
+        1270,
+        440
+      ]
+    }
+  }
+}

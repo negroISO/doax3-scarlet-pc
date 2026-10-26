@@ -1,0 +1,4 @@
+1 ICON "../../launcher/doax3.ico"
+#define DOAX3_DESCRIPTION "Play DOAX3 Scarlet"
+#define DOAX3_FILENAME "Play DOAX3 Scarlet.exe"
+#include "doax3-version.rcinc"

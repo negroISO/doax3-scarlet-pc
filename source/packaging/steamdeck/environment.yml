@@ -1,0 +1,23 @@
+name: doax3-linux-build
+channels:
+  - conda-forge
+dependencies:
+  - gxx_linux-64=14
+  - cmake=3.31
+  - ninja
+  - pkg-config
+  - sdl3=3.2
+  - ffmpeg=8
+  - fmt=11
+  - libboost-devel=1.88
+  - xxhash
+  - tsl_robin_map
+  - vulkan-memory-allocator
+  - glslang
+  - xorg-libx11
+  - xorg-xorgproto
+  - patchelf
+  - python=3.12
+  - pillow
+  - pyinstaller
+  - tk
