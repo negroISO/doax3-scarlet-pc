@@ -2,6 +2,10 @@
 # Optional per-user install; game data and saved games are never copied or replaced.
 set -euo pipefail
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+if [[ ${1:-} == --gui ]]; then
+    chmod +x "$source_dir/doax3-launcher" "$source_dir/bin/theorder-probe" "$source_dir/Launch-DOAX3.sh"
+    exec "$source_dir/doax3-launcher" --install
+fi
 destination=${1:-$HOME/Applications/DOAX3-Scarlet}
 destination=$(realpath -m -- "$destination")
 if [[ "$destination" == "$source_dir" || "$destination" == "$source_dir/"* ]]; then

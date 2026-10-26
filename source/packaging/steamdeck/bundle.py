@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tarfile
 import zipfile
+from deck_install import installer_desktop
 
 HERE = Path(__file__).resolve().parent
 # Host ABI and graphics/display stacks stay on the Deck. Application dependencies
@@ -37,7 +38,10 @@ def main():
     parser.add_argument('--profiles', type=Path, required=True)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--game', choices=('scarlet', 'fortune'), default='scarlet')
+    parser.add_argument('--source-revision', required=True, help='published 40-character Git source revision')
     args = parser.parse_args()
+    if not re.fullmatch(r'[0-9a-f]{40}', args.source_revision):
+        parser.error('source-revision must be the complete published source commit')
     workspace = args.workspace.resolve()
     sdk = Path(os.environ['CONDA_PREFIX']).resolve()
     prefix = workspace / 'prefix'
@@ -55,6 +59,8 @@ def main():
                     '--workpath', str(freeze / 'work'), '--specpath', str(freeze),
                     '--paths', str(source / 'scripts'), '--hidden-import', 'prepare',
                     '--hidden-import', 'link_modules', '--hidden-import', 'link_libc',
+                    '--paths', str(HERE), '--hidden-import', 'deck_install',
+                    '--hidden-import', 'steam_shortcut',
                     str(HERE / 'launcher.py')], check=True)
     shutil.copytree(freeze / 'dist/doax3-launcher', app)
     (app / 'bin').mkdir()
@@ -75,12 +81,24 @@ def main():
             if name == 'README.txt':
                 text += '\nOptional extracted DLC: keep each DLC folder under game/addcont/<16-character label>.\nAll installed packs are discovered on startup; no online shop service is supplied.\n'
         (app / name).write_text(text)
+    installer = app / 'Install-DOAX3.desktop'
+    installer.write_text(installer_desktop(profile['name']))
+    installer.chmod(0o755)
     for path in (app / 'Launch-DOAX3.sh', app / 'install.sh', app / 'doax3-launcher',
                  app / 'bin/theorder-probe', app / 'bin/theorder-gpu-capabilities'):
         path.chmod(0o755)
     icon = 'doax3-fortune.png' if args.game == 'fortune' else 'doax3.png'
     shutil.copy2(source / 'launcher' / icon, app / 'share/doax3.png')
     (app / 'share/game.json').write_text(json.dumps(profile, indent=2) + '\n')
+    source_url = 'https://github.com/negroISO/doax3-' + args.game + '-pc'
+    (app / 'share/source-version.json').write_text(json.dumps({
+        'repository': source_url, 'revision': args.source_revision,
+        'source_archive': source_url + '/archive/' + args.source_revision + '.tar.gz',
+        'platform': 'native-linux-x86_64', 'steam_deck_hardware_tested': False,
+        'included_fixes': ['async shader retention and permutation keys',
+                          'opaque draw command-buffer reservation',
+                          'profiler submission wait and lighting clear fixes'],
+        'neural_rendering': False, 'frame_generation': False}, indent=2) + '\n')
     shutil.copy2(source / 'LICENSE', app / 'LICENSE')
     for name in ('content.bin', 'patches.bin'):
         shutil.copy2(args.profiles / name, app / 'share' / name)
@@ -106,7 +124,7 @@ def main():
             target = app / 'lib' / name
             shutil.copyfile(Path(location).resolve(), target)
             target.chmod(0o644)
-            copied[name] = {'origin': location, 'sha256_before_relocation': digest(target)}
+            copied[name] = {'sha256_before_relocation': digest(target)}
             pending.append(target)
     patchelf = str(sdk / 'bin/patchelf')
     for path in (app / 'lib').iterdir():
@@ -132,12 +150,27 @@ def main():
     lock = subprocess.check_output([str(workspace / 'tools/bin/micromamba'), '--no-rc',
         '-r', str(workspace / 'mamba'), 'list', '-p', str(sdk), '--explicit'], text=True)
     (app / 'share/sdk-explicit.txt').write_text(lock)
+    licenses = app / 'licenses'
+    licenses.mkdir()
+    for metadata in sorted((sdk / 'conda-meta').glob('*.json')):
+        record = json.loads(metadata.read_text())
+        package = record.get('name', metadata.stem)
+        cache = Path(record.get('link', {}).get('source', '')) / 'info/licenses'
+        if cache.is_dir():
+            shutil.copytree(cache, licenses / package, dirs_exist_ok=True)
+    for dep in ('Vulkan-Headers', 'Vulkan-Loader', 'zydis'):
+        folder = workspace / 'deps' / dep
+        for notice in folder.glob('LICENSE*'):
+            if notice.is_file():
+                (licenses / dep).mkdir(exist_ok=True)
+                shutil.copy2(notice, licenses / dep / notice.name)
     (app / 'SOURCES.txt').write_text(
         'DOAX3 native candidate, built from the recorded source snapshot.\n'
-        'Source snapshot and SHA256 manifest: source-snapshot.json alongside build artifacts.\n'
+        'Corresponding source: ' + source_url + '/tree/' + args.source_revision + '\n'
+        'Source archive: ' + source_url + '/archive/' + args.source_revision + '.tar.gz\n'
         'Upstream: mateussmeneses/theorder1886-port; shadPS4; FelipePrado0/gow3_pc.\n'
         'GNU GPL-2.0-or-later source lineage; see LICENSE and source/docs/upstream.\n'
-        'Library source packages and exact build URLs: share/sdk-explicit.txt.\n'
+        'Library source packages and exact build URLs: share/sdk-explicit.txt. Notices: licenses/.\n'
         'Vulkan-Headers/Loader v1.4.357 (Khronos); Zydis v4.1.1 with pinned Zycore.\n'
         'Only the application icon is included; no firmware, game executable/gameplay data, Windows DLLs or graphics drivers.\n')
     report = {'platform': 'native-linux-x86_64', 'game': profile, 'deck_verified': False,

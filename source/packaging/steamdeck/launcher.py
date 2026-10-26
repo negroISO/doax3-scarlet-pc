@@ -59,7 +59,12 @@ def main():
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--self-check', action='store_true')
     parser.add_argument('--no-ui', action='store_true')
+    parser.add_argument('--install', action='store_true', help='graphical per-user installation and Steam registration')
     args = parser.parse_args()
+    if args.install:
+        from deck_install import graphical_install
+        graphical_install(APP, PROFILE)
+        return 0
     if args.timeout < 0:
         parser.error('timeout must be nonnegative')
     exe = APP / 'bin/theorder-probe'
@@ -87,7 +92,9 @@ def main():
     data.mkdir(parents=True, exist_ok=True)
     locations_file = data / 'locations.json'
     locations = json.loads(locations_file.read_text()) if locations_file.is_file() else {}
-    game = args.game_dir or (Path(locations['game']) if locations.get('game') else None)
+    from deck_install import discover_inputs
+    discovered_game, discovered_modules = discover_inputs(APP, PROFILE)
+    game = args.game_dir or (Path(locations['game']) if locations.get('game') else discovered_game)
     if game is None and not args.no_ui:
         selected = choose_folder(f'{NAME} {PROFILE["version"]} — choose the game folder containing eboot.bin')
         game = Path(selected) if selected else None
@@ -99,7 +106,7 @@ def main():
     sfo = read_sfo(game / 'sce_sys/param.sfo') or {}
     if (sfo.get('TITLE_ID'), sfo.get('APP_VER')) != (PROFILE['title_id'], PROFILE['version']):
         raise RuntimeError(f'This candidate needs the merged {PROFILE["name"]} {PROFILE["title_id"]} version {PROFILE["version"]} game folder.')
-    modules_dir = args.modules_dir or (Path(locations['modules']) if locations.get('modules') else APP / 'sys_modules')
+    modules_dir = args.modules_dir or (Path(locations['modules']) if locations.get('modules') else discovered_modules or APP / 'sys_modules')
     if not all((modules_dir / name).is_file() for name in MODULE_NAMES) and not args.no_ui:
         selected = choose_folder('Choose your sys_modules folder: libSceFiber, ulobjmgr and libSceUlt')
         if selected:

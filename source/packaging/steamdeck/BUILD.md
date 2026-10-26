@@ -36,11 +36,18 @@ Build concurrency
 is three jobs; CPU flags remain generic x86-64. Vulkan/SDL libraries come from
 the isolated prefix for building. Device drivers are never bundled.
 
-`bundle.py --workspace WORKSPACE --profiles PROFILE_DIR --output OUTPUT_DIR`
+`bundle.py --workspace WORKSPACE --profiles PROFILE_DIR --output OUTPUT_DIR --source-revision GIT_SHA`
 freezes `launcher.py`, strips native binaries, bundles dependencies and rewrites
 RPATHs. PROFILE_DIR holds the validated generated `content.bin` and empty
 `patches.bin`, not a game executable. It emits TAR.GZ, ZIP and dependency/hash
 reports. Use a fresh output directory; existing apps are not overwritten.
+
+The archive includes a frozen graphical installer and `Install-DOAX3.desktop`.
+It performs a per-user copy, prepares the supplied game, backs up/adds native
+Steam shortcuts only while Steam is closed, and restarts Steam afterward.
+No root or system package installation is needed on the Deck. Source revisions
+must be complete published commit hashes; source URLs and dependency notices
+are included in the package. Build-machine source paths are prefix-mapped.
 
 For Fortune 1.19 use `--game fortune` with its generated full-SKU content profile
 and empty patches. The separate app is DOAX3-Fortune, with the Fortune icon,

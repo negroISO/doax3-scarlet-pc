@@ -33,6 +33,9 @@ cmake --install "$workspace/build/zydis"
 
 cd "$workspace/source"
 export THEORDER_LTO=OFF THEORDER_PGO=off THEORDER_BUILD_JOBS=3
+# Keep build-machine directory names out of compiled source-location strings.
+export CFLAGS="${CFLAGS:+$CFLAGS }-ffile-prefix-map=$workspace=/usr/src/doax3"
+export CXXFLAGS="${CXXFLAGS:+$CXXFLAGS }-ffile-prefix-map=$workspace=/usr/src/doax3"
 # build.sh applies the source's FSR patches before configuring and uses the
 # portable CPU flags supplied by the SDK. One configure avoids duplicate builds.
 bash build.sh

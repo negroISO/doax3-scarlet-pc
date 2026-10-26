@@ -106,8 +106,8 @@ See [validation.md](docs/validation.md) for evidence and limits.
 Remaining work includes complete GS streamout/COPY_DATA/water effects,
 exhaustive outfits/maps/Photo Paradise and broader activity testing. Sound
 playback was not verified in the latest session without a default audio device.
-Native Steam Deck build sources are included, but actual Deck gameplay is
-unverified and no old Deck binaries are uploaded here.
+Native Linux / Steam Deck packages and a graphical installer are described in
+[Steam Deck setup](docs/steamdeck.md). Actual Deck gameplay remains unverified.
 
 ## Native / DLSS5 NR comparisons
 
