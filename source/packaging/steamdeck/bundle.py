@@ -10,6 +10,8 @@ import subprocess
 import tarfile
 import zipfile
 from deck_install import installer_desktop
+from conda_pack.prefixes import replace_prefix
+from conda_pack import __version__ as conda_pack_version
 
 HERE = Path(__file__).resolve().parent
 # Host ABI and graphics/display stacks stay on the Deck. Application dependencies
@@ -98,7 +100,8 @@ def main():
         'included_fixes': ['async shader retention and permutation keys',
                           'opaque draw command-buffer reservation',
                           'profiler submission wait and lighting clear fixes'],
-        'neural_rendering': False, 'frame_generation': False}, indent=2) + '\n')
+        'neural_rendering': False, 'frame_generation': False,
+        'conda_pack_version': conda_pack_version}, indent=2) + '\n')
     shutil.copy2(source / 'LICENSE', app / 'LICENSE')
     for name in ('content.bin', 'patches.bin'):
         shutil.copy2(args.profiles / name, app / 'share' / name)
@@ -132,6 +135,22 @@ def main():
             subprocess.run([patchelf, '--set-rpath', '$ORIGIN', str(path)], check=True)
     for path in (app / 'bin').iterdir():
         subprocess.run([patchelf, '--set-rpath', '$ORIGIN/../lib', str(path)], check=True)
+    # Conda rewrites compiled library defaults to the SDK's installation prefix.
+    # Use its supported length-preserving binary relocation for the distribution.
+    sdk_prefixes = sorted({str(sdk), str(sdk.resolve())}, key=len, reverse=True)
+    for path in app.rglob('*'):
+        if not path.is_file() or not elf(path):
+            continue
+        original = path.read_bytes()
+        relocated = original
+        for sdk_prefix in sdk_prefixes:
+            relocated = replace_prefix(relocated, 'binary', sdk_prefix, '/usr')
+            if sdk_prefix.encode() in relocated:
+                raise RuntimeError('An SDK path could not be relocated safely: ' + str(path.relative_to(app)))
+        if len(relocated) != len(original):
+            raise RuntimeError('Library relocation changed ELF length')
+        if relocated != original:
+            path.write_bytes(relocated)
     # Re-run resolution without SDK paths. A missing app dependency must fail the bundle.
     audit_env = dict(os.environ, LD_LIBRARY_PATH=str(app / 'lib'))
     dependency_audit = {}
@@ -149,7 +168,10 @@ def main():
         raise RuntimeError(f'Unexpected game/Windows files in native app: {forbidden}')
     lock = subprocess.check_output([str(workspace / 'tools/bin/micromamba'), '--no-rc',
         '-r', str(workspace / 'mamba'), 'list', '-p', str(sdk), '--explicit'], text=True)
-    (app / 'share/sdk-explicit.txt').write_text(lock)
+    urls = [line.strip() for line in lock.splitlines() if line.strip().startswith('https://')]
+    if not urls:
+        raise RuntimeError('No explicit dependency URLs returned by Micromamba')
+    (app / 'share/sdk-explicit.txt').write_text('@EXPLICIT\n' + '\n'.join(urls) + '\n')
     licenses = app / 'licenses'
     licenses.mkdir()
     for metadata in sorted((sdk / 'conda-meta').glob('*.json')):

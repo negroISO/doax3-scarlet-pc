@@ -20,4 +20,5 @@ dependencies:
   - python=3.12
   - pillow
   - pyinstaller
+  - conda-pack
   - tk
