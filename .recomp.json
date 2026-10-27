@@ -1,0 +1,21 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Dead or Alive Xtreme 3 Scarlet",
+  "system": "PS4",
+  "type": "recomp",
+  "original": { "revision": "01.08", "serial": "CUSA14173" },
+  "project": "DOAX3 Scarlet PC",
+  "status": "released",
+  "targets": ["Windows", "Linux"],
+  "toolchain": ["DOAX3 native runtime", "shadPS4"],
+  "approach": "Native x86-64 execution through a ported runtime and PS4 ABI implementations; shadPS4 GPU command/shader translation to Vulkan. No static CPU recompilation.",
+  "maintainers": [{ "name": "negroISO", "link": "https://github.com/negroISO" }],
+  "links": [
+    { "label": "Validation and limitations", "url": "https://github.com/negroISO/doax3-scarlet-pc/blob/main/docs/validation.md" },
+    { "label": "Runtime ancestry and credits", "url": "https://github.com/negroISO/doax3-scarlet-pc/blob/main/docs/provenance.md" },
+    { "label": "Native Steam Deck setup", "url": "https://github.com/negroISO/doax3-scarlet-pc/blob/main/docs/steamdeck.md" }
+  ],
+  "help": ["Steam Deck and AMD GPU testing", "Full-game activity and outfit testing", "Remaining black backgrounds and water effects", "Audio validation"],
+  "tags": ["experimental", "native-x86-64", "Vulkan"],
+  "notes": "Experimental public prerelease. Windows smoke tests cover the rotating title island/menu and animated Relax scenes, including optional neural rendering. Native Linux builds and a graphical Steam Deck installer are available; actual Steam Deck gameplay is unverified. Full-game and outfit coverage remains incomplete; black backgrounds outside captured routes are not declared resolved. Runtime ancestry includes Uncharted: The Nathan Drake Collection and The Order: 1886; full credits are linked. Users supply their own matching game and system-module files."
+}
