@@ -25,15 +25,16 @@ def main():
     parser.add_argument('--msys2-root', type=Path)
     parser.add_argument('--addon-dir', type=Path)
     parser.add_argument('--exe', type=Path, help='advanced: override the native host')
-    parser.add_argument('--neural', choices=('0', '1'), default='0')
-    parser.add_argument('--nr-strength', type=float, default=1)
+    parser.add_argument('--neural', choices=('0', '1'), default=None, help='override saved NR enable state')
+    parser.add_argument('--prefer-neural', action='store_true', help='enable NR on first setup, then respect saved choices')
+    parser.add_argument('--nr-strength', type=float, default=None, help='override saved NR strength (0..1)')
     parser.add_argument('--timeout', type=int, default=0)
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--check', action='store_true', help='validate paths/version without creating game images')
     args = parser.parse_args()
     if os.name != 'nt':
         parser.error('this entry point is Windows-only; see docs/building.md for native Linux status')
-    if args.timeout < 0 or not 0 <= args.nr_strength <= 1:
+    if args.timeout < 0 or (args.nr_strength is not None and not 0 <= args.nr_strength <= 1):
         parser.error('timeout must be nonnegative and NR strength must be between0 and1')
     config_file = ROOT / 'local.json'
     config = json.loads(config_file.read_text()) if config_file.exists() else {}
@@ -103,20 +104,32 @@ def main():
             return 0
         user = ROOT / 'user'
         user.mkdir(exist_ok=True)
+        graphics = user / 'graphics.ini'
+        saved = dict(line.split('=', 1) for line in graphics.read_text().splitlines()
+                     if '=' in line and not line.lstrip().startswith('#')) if graphics.is_file() else {}
+        selected_neural = args.neural if args.neural is not None else str(int(
+            saved.get('neural', '1' if args.prefer_neural else '0').strip() == '1'))
+        if not graphics.is_file():
+            defaults = (ROOT / 'config/graphics.defaults.ini').read_text()
+            graphics.write_text(defaults.replace('neural=0', 'neural='+selected_neural))
         env = os.environ.copy()
         for key in ('THEORDER_PAD_FILE','THEORDER_PAD_REPLAY','THEORDER_SAMPLE','THEORDER_SAMPLE_OUT',
                     'THEORDER_RESTART_COMMAND','THEORDER_GPU_PROFILE','THEORDER_PM4_BAD_DUMP',
                     'THEORDER_DUMP_SHADERS','THEORDER_FRAME_DUMP_TRIGGER','THEORDER_NR_DUMP_TRIGGER',
-                    'THEORDER_CAPTURE_TRIGGER','THEORDER_FRAME_TIMES'):
+                    'THEORDER_CAPTURE_TRIGGER','THEORDER_FRAME_TIMES','THEORDER_PRESET_FILE',
+                    'THEORDER_UPSCALER','THEORDER_PRESET','THEORDER_NEURAL','THEORDER_NR_STRENGTH',
+                    'THEORDER_OUTPUT_RES','THEORDER_RENDER_RES','THEORDER_ENGINE_FPS'):
             env.pop(key, None)
         env.update(THEORDER_GAME_DIR=str(game), THEORDER_DATA_DIR=str(image),
                    THEORDER_USER_DIR=str(user), THEORDER_GPU_USER_DIR=str(user),
-                   THEORDER_CONFIG=str(user/'graphics.ini'), THEORDER_UPSCALER='none',
+                   THEORDER_CONFIG=str(graphics),
                    THEORDER_ASYNC_SHADERS='1', THEORDER_FPS_LIMIT='30', THEORDER_VBLANK_HZ='60',
                    THEORDER_FLIP_RATE='1', THEORDER_NATIVE_LIBRARIES='libSceFiber,ulobjmgr,libSceUlt',
-                   THEORDER_NEURAL=args.neural, THEORDER_NR_STRENGTH=str(args.nr_strength),
-                   THEORDER_NR_GUIDES_ONLY='0', THEORDER_OBJECT_MOTION='1' if args.neural=='1' else '0',
+                   THEORDER_NEURAL=selected_neural,
+                   THEORDER_NR_GUIDES_ONLY='0', THEORDER_OBJECT_MOTION='1',
                    THEORDER_FILE_TRACE='0')
+        if args.nr_strength is not None:
+            env['THEORDER_NR_STRENGTH'] = str(args.nr_strength)
         env.setdefault('THEORDER_KEY_MAP', 'options=F8')
         if addon.is_dir():
             env['THEORDER_ADDON_DIR'] = str(addon)
@@ -131,10 +144,11 @@ def main():
                    '--user',str(user),'--timeout',str(args.timeout)]
         print(PROFILE['name']+'; Circle=Left Shift/Esc, Cross=Space/Enter, Options=F8', flush=True)
         print('Saves/cache: '+str(user)+'; logs: '+str(logs), flush=True)
+        print('Native 30 FPS; Insert opens live graphics controls. Settings: '+str(graphics), flush=True)
         with (logs/'stdout.log').open('wb') as out, (logs/'stderr.log').open('wb') as err:
             code = subprocess.call(command, cwd=ROOT/'source', env=env, stdout=out, stderr=err)
         (logs/'result.json').write_text(json.dumps({'exit_code':code,'command':command,
-            'host_sha256':digest(exe),'linked_sha256':digest(linked),'neural':args.neural}, indent=2)+'\n')
+            'host_sha256':digest(exe),'linked_sha256':digest(linked),'neural':selected_neural}, indent=2)+'\n')
         return code
 
 

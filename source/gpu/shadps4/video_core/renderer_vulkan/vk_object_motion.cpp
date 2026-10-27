@@ -7,6 +7,8 @@
 
 #include <vk_mem_alloc.h>
 #include "port_settings.h"
+#include "common/elf_info.h"
+#include "video_core/renderer_vulkan/doax3_camera.h"
 #include "port_toggles.h"
 #include "shader_recompiler/runtime_info.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
@@ -55,8 +57,9 @@ ObjectMotion::ObjectMotion(const Instance& instance_, Scheduler& scheduler_)
     // animated draws. A setting or environment override can still disable the path.
     const char* neural_setting = std::getenv("THEORDER_NEURAL");
     const bool neural = neural_setting && neural_setting[0] == '1';
-    if (!PortSettings::Get().object_motion ||
-        (PortSettings::Get().upscaler == PortSettings::UpscalerOff && !neural)) {
+    const bool doax3 = UsesDoax3SceneLayout(Common::ElfInfo::Instance().GameSerial());
+    if (!doax3 && (!PortSettings::Get().object_motion ||
+        (PortSettings::Get().upscaler == PortSettings::UpscalerOff && !neural))) {
         std::puts("Object motion: off (enable in menu or THEORDER_OBJECT_MOTION=1)");
         return;
     }
@@ -97,6 +100,7 @@ void ObjectMotion::OnFrameStart() {
     if (!enabled) {
         return;
     }
+    scheduler.EndRendering(); // Wait()/barriers below may submit or mutate buffer state.
     if (PortStats::enabled && (frame % 600) == 0 && history.stats.draws) {
         const auto& s = history.stats;
         std::printf("Object motion: %llu draws, %llu stored, %llu with history, %llu unmatched, "

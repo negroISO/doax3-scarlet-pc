@@ -175,7 +175,7 @@ TemporalUpscaler::TemporalUpscaler(const Instance& instance_, Scheduler& schedul
     }
     // Available unless THEORDER_UPSCALER=none; on/off and the parameters are the menu's settings.
     const char* env = std::getenv("THEORDER_UPSCALER");
-    enabled = !(env && std::strcmp(env, "none") == 0);
+    enabled = camera_motion.UsesDoax3Constants() || !(env && std::strcmp(env, "none") == 0);
     if (const char* hash = std::getenv("THEORDER_UPSCALE_BEFORE_CS")) {
         trigger_hash = std::strtoull(hash, nullptr, 16);
     }
@@ -263,7 +263,102 @@ bool TemporalUpscaler::ReducedScene(const VideoCore::Image& color) const {
 }
 
 bool TemporalUpscaler::RasterScaling() const {
-    return !scaled_session && scene_targets.Reduced() && !done_this_frame;
+    return !scaled_session && scene_targets.Reduced() && !done_this_frame && !ui_phase;
+}
+
+void TemporalUpscaler::BeginDoax3Scene() {
+    if (!camera_motion.UsesDoax3Constants() || doax3_scene_open) return;
+    doax3_scene_open = true;
+    static const char* control = std::getenv("THEORDER_PRESET_FILE");
+    if (control) {
+        if (FILE* file = std::fopen(control, "r")) {
+            int quality = -1, output = -1, provider = -1, model = -1, nr = -1;
+            int nr_model = -1, style = -1, passes = -1, strength = -1;
+            char line[256]{};
+            static std::string previous;
+            const bool read = std::fgets(line, sizeof(line), file) != nullptr;
+            const int fields = read && previous != line
+                ? std::sscanf(line, "%d%d%d%d%d%d%d%d%d", &quality, &output, &provider,
+                              &model, &nr, &nr_model, &style, &passes, &strength) : 0;
+            if (read) previous = line;
+            std::fclose(file);
+            auto& s = PortSettings::Get();
+            if (fields >= 1 && quality >= 0 && quality < 5) s.preset = quality;
+            if (fields >= 2 && output >= 0 && output < PortSettings::OutputCount) s.output_res = output;
+            if (fields >= 3 && (provider == 0 || provider == 5)) s.upscaler = provider;
+            if (fields >= 4 && (model == 0 || (model >= 10 && model <= 13))) s.dlss_model = model;
+            if (fields >= 5 && nr >= 0 && nr <= 1) s.neural = nr != 0;
+            if (fields >= 6 && nr_model >= 0 && nr_model <= 3) s.nr_preset = nr_model;
+            if (fields >= 7 && style >= 0 && style <= 2) s.nr_style = style;
+            if (fields >= 8 && passes >= 1 && passes <= 3) s.nr_passes = passes;
+            if (fields >= 9 && strength >= 0 && strength <= 100) s.nr_strength = strength;
+        }
+    }
+    const auto& settings = PortSettings::Get();
+    const int output = std::clamp(settings.output_res.load(), 0, PortSettings::OutputCount - 1);
+    target_width = PortSettings::OutputWidths[output];
+    target_height = PortSettings::OutputHeights[output];
+    const bool dlss = settings.upscaler == PortSettings::UpscalerDlss && settings.dlss_supported;
+    const int preset = dlss ? settings.preset.load() : 0;
+    if (scene_targets.SetSize(SceneResolution::ForPreset(preset, {target_width, target_height}))) {
+        camera_motion.InvalidateHistory();
+    }
+    render_width = scene_targets.Size().width;
+    render_height = scene_targets.Size().height;
+    PortSettings::Get().active_render_width = render_width;
+    PortSettings::Get().active_render_height = render_height;
+    done_this_frame = ui_phase = display_redirect = false;
+    jitter = dlss ? std::array<float, 2>{Halton(++jitter_index % 32 + 1, 2) - .5f,
+                                        Halton(jitter_index % 32 + 1, 3) - .5f}
+                  : std::array<float, 2>{};
+    camera_motion.SetJitter(jitter);
+}
+
+void TemporalUpscaler::BeginDoax3Copy(VAddr address) {
+    if (!camera_motion.UsesDoax3Constants()) return;
+    doax3_scene_open = false;
+    ui_phase = display_redirect = done_this_frame = false;
+    std::scoped_lock lock{display_mutex};
+    if (auto it = displays.find(address); it != displays.end()) it->second.valid = false;
+}
+
+void TemporalUpscaler::AdoptDoax3Scene(VideoCore::ImageId color, VideoCore::ImageId depth,
+                                     vk::Image source, u32 width, u32 height) {
+    const auto& image = texture_cache.GetImage(color);
+    EnsureUiResources(width, height, image.info.pixel_format,
+                      depth ? texture_cache.GetImage(depth).info.pixel_format : vk::Format::eD32SfloatS8Uint);
+    PrepareUiDepth(depth);
+    ui_phase = false;
+    display_redirect = true;
+    Target target;
+    VideoCore::ImageViewInfo info{};
+    info.format = image.info.pixel_format;
+    if (!RedirectColor(color, info, target)) return;
+    scheduler.EndRendering();
+    const auto cmd = scheduler.CommandBuffer();
+    const vk::MemoryBarrier2 before{
+        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .srcAccessMask = vk::AccessFlagBits2::eMemoryWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .dstAccessMask = vk::AccessFlagBits2::eTransferRead | vk::AccessFlagBits2::eTransferWrite};
+    cmd.pipelineBarrier2({.memoryBarrierCount = 1, .pMemoryBarriers = &before});
+    {
+        std::scoped_lock lock{display_mutex};
+        const auto destination = vk::Image(displays.at(image.info.guest_address).image);
+        cmd.copyImage(source, vk::ImageLayout::eGeneral, destination, vk::ImageLayout::eGeneral,
+                      vk::ImageCopy{.srcSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                                    .dstSubresource = {vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+                                    .extent = {width, height, 1}});
+    }
+    const vk::MemoryBarrier2 after{
+        .srcStageMask = vk::PipelineStageFlagBits2::eTransfer,
+        .srcAccessMask = vk::AccessFlagBits2::eTransferWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eAllCommands,
+        .dstAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite};
+    cmd.pipelineBarrier2({.memoryBarrierCount = 1, .pMemoryBarriers = &after});
+    ui_color = color;
+    ui_depth = depth;
+    ui_phase = done_this_frame = true;
 }
 
 bool TemporalUpscaler::OnFrameStart() {
@@ -1304,6 +1399,7 @@ void TemporalUpscaler::OnColorTarget(VideoCore::ImageId color) {
 
 void TemporalUpscaler::OnDraw(u64 vs_hash, VideoCore::ImageId color,
                               VideoCore::ImageId depth, bool native_viewport) {
+    if (camera_motion.UsesDoax3Constants()) return;
     if (!Scaled() && vs_hash == ui_trigger_vs) done_this_frame = true;
     if (!Scaled()) {
         return;
@@ -1797,6 +1893,16 @@ vk::ImageView TemporalUpscaler::Mirror(vk::Image image, std::vector<MirrorView>&
 bool TemporalUpscaler::RedirectColor(VideoCore::ImageId color,
                                      const VideoCore::ImageViewInfo& view_info, Target& target) {
     if (ui_phase && color == ui_color) {
+        if (camera_motion.UsesDoax3Constants()) {
+            const auto address = texture_cache.GetImage(color).info.guest_address;
+            std::scoped_lock lock{display_mutex};
+            auto it = displays.find(address);
+            if (it == displays.end() || !it->second.valid) return false;
+            auto& display = it->second;
+            target = {Mirror(vk::Image(display.image), display.views, view_info.format, {}),
+                      vk::ImageLayout::eGeneral, display.width, display.height, true};
+            return true;
+        }
         target = {Mirror(vk::Image(ui_image), ui_views, view_info.format, {}),
                   vk::ImageLayout::eGeneral, ui_width, ui_height, true};
         return true;
@@ -1833,7 +1939,7 @@ bool TemporalUpscaler::RedirectColor(VideoCore::ImageId color,
             .samples = vk::SampleCountFlagBits::e1,
             .tiling = vk::ImageTiling::eOptimal,
             .usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled |
-                     vk::ImageUsageFlagBits::eTransferSrc,
+                     vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
             .initialLayout = vk::ImageLayout::eUndefined,
         });
         display.views.clear();
@@ -1859,7 +1965,10 @@ bool TemporalUpscaler::RedirectColor(VideoCore::ImageId color,
 }
 
 bool TemporalUpscaler::RedirectDepth(VideoCore::ImageId depth, Target& target) {
-    if (!ui_phase || depth != ui_depth) {
+    const bool doax_depth = camera_motion.UsesDoax3Constants() && depth &&
+        texture_cache.GetImage(depth).info.size.width == 1920 &&
+        texture_cache.GetImage(depth).info.size.height == 1080;
+    if (!ui_phase || (depth != ui_depth && !doax_depth)) {
         return false;
     }
     target = {*ui_depth_view, vk::ImageLayout::eGeneral, ui_width, ui_height, true};

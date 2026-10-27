@@ -1,4 +1,4 @@
-// theorder.ini graphics keys (port_settings.cpp, port_graphics.h).
+// graphics.ini keys (port_settings.cpp, port_graphics.h).
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -93,6 +93,24 @@ int main() {
     assert(v.display_mode == G::Windowed && v.fps_limit == 0 && v.aspect == 0 && v.engine_fps == 120);
     assert(v.rcas_strength == 75 && v.frames_queued == 1);
     assert(v.async_shaders);
+    // Live NVIDIA controls survive closing/reopening the menu and a new launch.
+    v.dlss_model = 13;
+    v.neural = true;
+    v.nr_preset = 3;
+    v.nr_style = 2;
+    v.nr_passes = 2;
+    v.nr_strength = 65;
+    PortSettings::Save();
+    v.dlss_model = 0;
+    v.neural = false;
+    v.nr_preset = v.nr_style = 0;
+    v.nr_passes = 1;
+    v.nr_strength = 100;
+    _putenv_s("THEORDER_NEURAL", "");
+    _putenv_s("THEORDER_NR_STRENGTH", "");
+    PortSettings::Load();
+    assert(v.dlss_model == 13 && v.neural && v.nr_preset == 3 && v.nr_style == 2);
+    assert(v.nr_passes == 2 && v.nr_strength == 65);
     std::remove(path);
     std::puts("PASS: graphics settings");
 }

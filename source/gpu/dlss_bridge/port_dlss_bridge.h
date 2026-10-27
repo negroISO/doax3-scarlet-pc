@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-#define THEORDER_DLSS_BRIDGE_ABI 2
+#define THEORDER_DLSS_BRIDGE_ABI 3
 
 typedef void (*PortDlssLogFn)(int warning, const char* message);
 
@@ -53,6 +53,7 @@ typedef struct PortDlssEvaluate {
 typedef struct PortNrOptions {
     float intensity, tone, structure, skin;
     int32_t hdr, style, depth_inverted, color_is_bgra;
+    int32_t preset, passes; // ABI3: Feature18 model hint and independent temporal passes
 } PortNrOptions;
 
 typedef struct PortDlssApi {
@@ -77,6 +78,8 @@ typedef struct PortDlssApi {
     int32_t (*NeuralEvaluate)(VkCommandBuffer, const PortDlssEvaluate*, const PortNrOptions*);
     const char* (*NeuralProblem)(void);
     uint64_t (*NeuralFrames)(void);
+    // ABI3: caller waits for submitted GPU work before changing model/size/pass count.
+    void (*NeuralRelease)(void);
 } PortDlssApi;
 
 typedef const PortDlssApi* (*PortDlssGetApiFn)(void);

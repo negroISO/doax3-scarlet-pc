@@ -74,6 +74,7 @@ struct Dlss::Impl {
     const PortDlssApi* api{};
     std::vector<std::string> instance_extensions, device_extensions;
     std::optional<FeatureDesc> feature;
+    std::optional<FeatureDesc> rejected;
     std::string problem;
     bool eligible{true}, instance_ready{}, device_ready{}, initialized{}, available{};
 
@@ -203,17 +204,29 @@ bool Dlss::HasFeature(const FeatureDesc& desc) const {
     return impl->feature && *impl->feature == desc;
 }
 
+bool Dlss::RejectedFeature(const FeatureDesc& desc) const {
+    return impl->rejected && *impl->rejected == desc;
+}
+
 bool Dlss::CreateFeature(vk::CommandBuffer command, const FeatureDesc& desc) {
     if (!impl->available) {
         return false;
     }
     impl->feature.reset();
-    const PortDlssFeature feature{desc.input_width,  desc.input_height, desc.output_width,
-                                desc.output_height, desc.quality,      0,
-                                0,                  desc.hdr ? 1 : 0};
-    if (!impl->api->CreateFeature(command, &feature)) {
+    PortDlssFeature feature{desc.input_width,  desc.input_height, desc.output_width,
+                                desc.output_height, desc.quality,      desc.depth_inverted ? 1 : 0,
+                                u32(desc.model),     desc.hdr ? 1 : 0};
+    int result = impl->api->CreateFeature(command, &feature);
+    if (!result && feature.preset) {
+        std::printf("DLSS: requested model rejected; retrying driver default\n");
+        feature.preset = 0;
+        result = impl->api->CreateFeature(command, &feature);
+    }
+    if (!result) {
+        impl->rejected = desc;
         return false;
     }
+    impl->rejected.reset();
     impl->feature = desc;
     return true;
 }
@@ -238,11 +251,11 @@ bool Dlss::Evaluate(vk::CommandBuffer command, const Frame& frame) {
 }
 
 bool Dlss::NeuralAvailable() const {
-    return impl->available && impl->api->abi >= 2 && impl->api->NeuralAvailable();
+    return impl->available && impl->api->abi >= 3 && impl->api->NeuralAvailable();
 }
 
 std::string Dlss::NeuralProblem() const {
-    if (!impl->available || impl->api->abi < 2) return "NR bridge unavailable";
+    if (!impl->available || impl->api->abi < 3) return "NR requires the updated ABI3 bridge";
     const char* problem = impl->api->NeuralProblem();
     return problem ? problem : "";
 }
@@ -264,7 +277,7 @@ bool Dlss::EvaluateNeural(vk::CommandBuffer command, const Frame& frame,
         frame.reset ? 1 : 0, frame.frame_ms, 0.f};
     const PortNrOptions settings{options.intensity, options.tone, options.structure,
         options.skin, 0, options.style, options.depth_inverted ? 1 : 0,
-        options.color_is_bgra ? 1 : 0};
+        options.color_is_bgra ? 1 : 0, options.preset, options.passes};
     return impl->api->NeuralEvaluate(command, &parameters, &settings) != 0;
 }
 
@@ -273,6 +286,10 @@ void Dlss::ReleaseFeature() {
     if (impl->api) {
         impl->api->ReleaseFeature();
     }
+}
+
+void Dlss::ReleaseNeural() {
+    if (impl->api && impl->api->abi >= 3) impl->api->NeuralRelease();
 }
 
 void Dlss::Shutdown() {
@@ -306,6 +323,7 @@ std::string Dlss::Problem() const {
 bool Dlss::HasFeature(const FeatureDesc&) const {
     return false;
 }
+bool Dlss::RejectedFeature(const FeatureDesc&) const { return false; }
 bool Dlss::CreateFeature(vk::CommandBuffer, const FeatureDesc&) {
     return false;
 }
@@ -317,6 +335,7 @@ std::string Dlss::NeuralProblem() const { return "NR is Windows-only"; }
 u64 Dlss::NeuralFrames() const { return 0; }
 bool Dlss::EvaluateNeural(vk::CommandBuffer, const Frame&, const NeuralOptions&) { return false; }
 void Dlss::ReleaseFeature() {}
+void Dlss::ReleaseNeural() {}
 
 #endif
 

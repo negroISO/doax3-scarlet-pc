@@ -1,8 +1,10 @@
 # Optional native neural rendering / “DLSS5 mod” path
 
 This is the experimental NGX Feature 18 path tested with the VamDlssNr
-runtime files. It supplies native 1920×1080 color, calibrated depth and
-camera/object-motion guides. It does **not** enable frame generation or claim
+runtime files. It supplies scene color, calibrated depth and camera/object-motion
+guides, with a native 1920×1080 default. The [live menu](graphics-menu.md) adds
+DLAA/DLSS, output sizes through 4K and NR model/style/pass controls.
+It does **not** enable frame generation or claim
 that every arbitrary NVIDIA DLL exposes the same interface.
 
 Native rendering does not require any of these DLLs. Start with the normal
@@ -62,8 +64,10 @@ python tools/Stage-Neural.py --runtime-dir "./inputs/neural-runtime"
 The staging helper copies the two newly built adapters and the two user-supplied
 runtime DLLs to the layout above. It records local hashes and warns if the donor
 runtime differs from the validated pair. It does not download or distribute
-NVIDIA files. Run the edition's -NR.cmd launcher after staging; --nr-strength 0.5
-reduces the effect, and the normal launcher remains the native-rendering path.
+NVIDIA files. Rebuild and stage **both adapters for ABI 3** when updating an older
+installation. The -NR.cmd shortcut enables NR for first setup; later launches
+respect saved menu choices. `--nr-strength 0.5` overrides strength for one launch.
+The default normal launch needs no NVIDIA processing.
 
 No proprietary DLL, DLSS SDK library, license key or BepInEx payload is committed.
 

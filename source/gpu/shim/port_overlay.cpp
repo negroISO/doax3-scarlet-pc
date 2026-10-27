@@ -277,18 +277,55 @@ std::string OverlayText() {
 void ImageTab() {
     namespace G = PortGraphics;
     auto& s = PortSettings::Get();
+    if (s.doax3_scene) {
+        ImGui::SeparatorText("DLSS / DLAA");
+        if (BeginRows("##doax_dlss")) {
+            static const char* const outputs[] = {"1280 x 720", "1920 x 1080", "2560 x 1440", "3840 x 2160"};
+            ChoiceRow("Output resolution", s.output_res, outputs, nullptr, 4,
+                      "Scene reconstruction and game interface resolution, independent of window size.");
+            static const char* const providers[] = {"Native", "NVIDIA DLSS / DLAA"};
+            static const int provider_values[] = {PortSettings::UpscalerOff, PortSettings::UpscalerDlss};
+            ChoiceRow("Anti-aliasing / upscale", s.upscaler, providers, provider_values, 2,
+                      "DLAA processes the scene at native resolution. DLSS quality modes reconstruct a larger output.");
+            ImGui::BeginDisabled(s.upscaler != PortSettings::UpscalerDlss);
+            static const char* const qualities[] = {"DLAA (native AA)", "Quality", "Balanced", "Performance", "Ultra Performance"};
+            ChoiceRow("DLSS quality", s.preset, qualities, nullptr, 5);
+            static const char* const models[] = {"Driver default", "J", "K", "L", "M"};
+            static const int model_values[] = {0, 10, 11, 12, 13};
+            ChoiceRow("DLSS model preset", s.dlss_model, models, model_values, 5,
+                      "Hints supported by the build's NVIDIA SDK. The runtime and driver choose the effective model; Driver default is recommended.");
+            ImGui::EndDisabled();
+            if (!s.dlss_supported) InfoRow("DLSS availability", s.dlss_problem.load() ? s.dlss_problem.load() : "Initializing");
+            ImGui::EndTable();
+        }
+        ImGui::SeparatorText("Neural Rendering");
+        if (BeginRows("##doax_neural")) {
+            CheckRow("Neural Rendering", s.neural, "Enhances the scene before the game's interface is drawn. Requires a compatible local NVIDIA NR runtime.");
+            ImGui::BeginDisabled(!s.neural);
+            static const char* const nr_models[] = {"Default", "1", "2", "3"};
+            static const char* const styles[] = {"Default", "Natural", "Cinematic"};
+            ChoiceRow("NR render preset", s.nr_preset, nr_models, nullptr, 4,
+                      "Runtime model hint. Unsupported hints fall back to the runtime default.");
+            ChoiceRow("NR style", s.nr_style, styles, nullptr, 3);
+            SliderRow("NR strength", s.nr_strength, 0, 100, "%d%%", "Strength of the neural enhancement.");
+            SliderRow("NR passes", s.nr_passes, 1, 3, "%d", "Extra passes cost GPU time and memory and can change detail. Each pass keeps separate temporal history.");
+            ImGui::EndDisabled();
+            if (const char* problem = s.neural_problem.load(); problem && *problem) InfoRow("NR status", problem);
+            ImGui::EndTable();
+        }
+    }
     ImGui::SeparatorText("Display");
     if (BeginRows("##display")) {
         ChoiceRow("Display mode", s.display_mode, G::DisplayModeNames.data(), nullptr, G::DisplayModeCount,
                   "Windowed, borderless window or exclusive fullscreen.");
         CheckRow("VSync", s.vsync, "Waits for the monitor: no tearing, a little more input delay.");
-        SliderRow("Field of view", s.fov, 50, 200, "%d%%",
+        if (!s.doax3_scene) SliderRow("Field of view", s.fov, 50, 200, "%d%%",
                   "How much of the scene the camera shows. Above 100% shows more on every side.");
         PortSettings::ApplyFov();
         ImGui::EndTable();
     }
-    ImGui::SeparatorText("Mouse");
-    if (BeginRows("##mouse")) {
+    if (!s.doax3_scene) ImGui::SeparatorText("Mouse");
+    if (!s.doax3_scene && BeginRows("##mouse")) {
         CheckRow("Mouse look (F7)", s.mouse_look,
                  "The mouse turns the camera; left button fires (R2), right button aims (L2), "
                  "middle R3, side buttons L1/R1.");
@@ -301,8 +338,8 @@ void ImageTab() {
     const int iw = s.image_width, ih = s.image_height, ww = s.window_width, wh = s.window_height;
     const bool downscaling = iw > ww || ih > wh;
     const bool rcas_blocked = s.rcas && !s.rcas_applied;
-    ImGui::SeparatorText("Applied on restart");
-    if (BeginRows("##image_restart")) {
+    if (!s.doax3_scene) ImGui::SeparatorText("Applied on restart");
+    if (!s.doax3_scene && BeginRows("##image_restart")) {
         ChoiceRow("Aspect ratio", s.aspect, G::AspectNames.data(), nullptr, int(G::AspectNames.size()),
                   "The shape of the game's picture. Pick your screen's to fill it without black bars: "
                   "the view keeps the original width and shows more above and below.");
@@ -338,6 +375,9 @@ void PerformanceTab() {
     auto& s = PortSettings::Get();
     ImGui::SeparatorText("Live");
     if (BeginRows("##live")) {
+        if (s.doax3_scene) {
+            InfoRow("Frame rate", "30 FPS (native game timing)");
+        } else {
         static const char* const fps_labels[] = {"30", "60", "120", "240", "Unlimited"};
         ChoiceRow("Frame rate limit", s.fps_limit, fps_labels, G::FpsLimits.data(), int(G::FpsLimits.size()),
                   "Caps the frame rate. The engine frame rate (below) is the highest it can go.");
@@ -351,6 +391,7 @@ void PerformanceTab() {
         if (s.applied_engine_fps < s.startup_engine_fps) {
             InfoRow("Engine frame rate", "30 FPS: the 60 FPS patch is not available for this game build");
         }
+        }
         static const char* const queued_labels[] = {"1 (lowest latency)", "2", "Unlimited"};
         ChoiceRow("Frames queued", s.frames_queued, queued_labels, G::FramesQueued.data(),
                   int(G::FramesQueued.size()), "More frames queued: steadier FPS, slower response to input.");
@@ -358,8 +399,8 @@ void PerformanceTab() {
                  "Fewer stutters in new areas; an object or effect may appear a moment later.");
         ImGui::EndTable();
     }
-    ImGui::SeparatorText("Applied on restart");
-    if (BeginRows("##restart")) {
+    if (!s.doax3_scene) ImGui::SeparatorText("Applied on restart");
+    if (!s.doax3_scene && BeginRows("##restart")) {
         // Engine 60 is The Order's own 30 FPS; 120 asks for its 60 FPS patch.
         static const char* const engine_labels[] = {"30 (original)", "60 (experimental)"};
         ChoiceRow("Engine frame rate", s.engine_fps, engine_labels, G::EngineFps.data(), 2,
@@ -452,7 +493,7 @@ void Menu() {
     // port: the game's own title (param.sfo), not a fixed one.
     static const std::string heading = [] {
         const std::string_view title = Common::ElfInfo::Instance().Title();
-        return std::string(title.empty() ? "The Order: 1886" : title) + PadText("  (Insert / R3+L2)", "  (Insert / RS+LT)", "  (Insert / RS+ZL)");
+        return std::string(title.empty() ? "DOAX3" : title) + PadText("  (Insert / R3+L2)", "  (Insert / RS+LT)", "  (Insert / RS+ZL)");
     }();
     if (!ImGui::Begin(heading.c_str(), &keep_open, ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
@@ -502,7 +543,7 @@ void Menu() {
 
     ImGui::Separator();
     ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled("%s", footer_help ? footer_help : PadText("L1 / R1 or Q / E: switch tabs. Settings are saved in theorder.ini.", "LB / RB or Q / E: switch tabs. Settings are saved in theorder.ini.", "L / R or Q / E: switch tabs. Settings are saved in theorder.ini."));
+    ImGui::TextDisabled("%s", footer_help ? footer_help : PadText("L1 / R1 or Q / E: switch tabs. Changes apply live; graphics.ini saves on close.", "LB / RB or Q / E: switch tabs. Changes apply live; graphics.ini saves on close.", "L / R or Q / E: switch tabs. Changes apply live; graphics.ini saves on close."));
     ImGui::PopTextWrapPos();
     if (const int changes = RestartChanges()) {
         ImGui::TextColored(ImVec4(0.85f, 0.72f, 0.45f, 1.0f), "%d change%s need%s a restart (unsaved progress is lost).",

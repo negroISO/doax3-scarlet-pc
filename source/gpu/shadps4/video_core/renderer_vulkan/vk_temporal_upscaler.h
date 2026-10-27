@@ -66,6 +66,11 @@ public:
 
     /// Start of a frame in the command stream (display pass).
     bool OnFrameStart();
+    // DOAX3's calibrated SDR copy is its scene/UI boundary.
+    void BeginDoax3Scene();
+    void BeginDoax3Copy(VAddr display_address);
+    void AdoptDoax3Scene(VideoCore::ImageId color, VideoCore::ImageId depth,
+                        vk::Image source, u32 width, u32 height);
     bool RasterScaling() const;
     /// port: LOD bias for scene materials, log2(render / output) while a reduced scene is
     /// upscaled (0 at native size, for TAA and without an upscaler).
@@ -124,6 +129,7 @@ public:
     bool DisplayOverride(VAddr address, Display& display);
 
 private:
+    bool doax3_scene_open = false;
     /// port: views of guest images the upscaler reads, kept across frames: FSR 4 registers
     /// images by view in a registry of eight (a new view per frame filled it at Native AA).
     vk::ImageView CachedView(const VideoCore::Image& image, vk::Format format,

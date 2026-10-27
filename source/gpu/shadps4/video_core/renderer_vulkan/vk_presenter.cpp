@@ -525,7 +525,10 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& 
 
     // port: FSR 1, RCAS and its strength come from the in-game menu, every frame.
     const auto& graphics = PortSettings::Get();
-    fsr_settings.enable = graphics.fsr1;
+    // RCAS runs after spatial enlargement when the chosen output is smaller
+    // than the window. DLSS scene reconstruction still runs before the UI.
+    fsr_settings.enable = graphics.fsr1 || (graphics.doax3_scene && graphics.rcas &&
+        (image_size.width < frame->width || image_size.height < frame->height));
     fsr_settings.use_rcas = graphics.rcas;
     fsr_settings.rcas_attenuation = PortGraphics::RcasAttenuation(graphics.rcas_strength);
     // The menu shows the picture's size in the game's image and on screen.

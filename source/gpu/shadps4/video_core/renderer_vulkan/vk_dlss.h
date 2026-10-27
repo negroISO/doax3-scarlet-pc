@@ -49,6 +49,8 @@ public:
         u32 input_width, input_height, output_width, output_height;
         int quality;
         bool hdr;
+        int model = 0;
+        bool depth_inverted = false;
         bool operator==(const FeatureDesc&) const = default;
     };
     struct Frame {
@@ -62,6 +64,7 @@ public:
     /// DLSS quality mode for an output/render size ratio (0 DLAA .. 4 Ultra Performance).
     static int QualityForScale(float scale);
     [[nodiscard]] bool HasFeature(const FeatureDesc& desc) const;
+    [[nodiscard]] bool RejectedFeature(const FeatureDesc& desc) const;
     /// Records the feature creation. The GPU must be done with the previous one.
     bool CreateFeature(vk::CommandBuffer command, const FeatureDesc& desc);
     bool Evaluate(vk::CommandBuffer command, const Frame& frame);
@@ -71,12 +74,14 @@ public:
     struct NeuralOptions {
         float intensity = 1.f, tone = 1.f, structure = 1.f, skin = 1.f;
         int style = 0;
+        int preset = 0, passes = 1;
         bool depth_inverted = false;
         bool color_is_bgra = false;
     };
     bool EvaluateNeural(vk::CommandBuffer command, const Frame& frame,
                         const NeuralOptions& options);
     void ReleaseFeature();
+    void ReleaseNeural();
 
 private:
     Dlss();

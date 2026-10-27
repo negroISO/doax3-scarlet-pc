@@ -37,16 +37,24 @@ PortNrDestroy destroy{};
 PortDlssLogFn logfn{};
 NVSDK_NGX_Parameter *parameters{};
 NVSDK_NGX_Handle *feature{};
+struct Image {
+  VkImage image{};
+  VkImageView view{};
+  VkDeviceMemory memory{};
+};
+struct PassState {
+  NVSDK_NGX_Parameter* parameters{};
+  NVSDK_NGX_Handle* feature{};
+  Image input, output;
+  bool images_general{};
+};
+std::array<PassState, 3> passes;
 bool initialized{}, images_general{}, failed{};
 uint32_t width{}, height{};
 VkFormat color_format = VK_FORMAT_R8G8B8A8_UNORM;
 uint64_t frames{};
 const char *problem = "Neural runtime not initialized";
-struct Image {
-  VkImage image{};
-  VkImageView view{};
-  VkDeviceMemory memory{};
-} input, output;
+Image input, output;
 #define VK_FUNCTIONS(X)                                                        \
   X(vkGetPhysicalDeviceMemoryProperties)                                       \
   X(vkCreateImage) X(vkGetImageMemoryRequirements) X(vkAllocateMemory)         \
@@ -153,19 +161,22 @@ void Blit(VkCommandBuffer cmd, VkImage source, VkImage dest) {
                  VK_FILTER_NEAREST);
 }
 void Release() {
-  if (feature && release) {
-    __try {
-      release(feature);
-    } __except (EXCEPTION_EXECUTE_HANDLER) {
-      Log("release raised exception", GetExceptionCode());
+  for (auto& pass : passes) {
+    if (pass.feature && release) {
+      __try {
+        release(pass.feature);
+      } __except (EXCEPTION_EXECUTE_HANDLER) {
+        Log("release raised exception", GetExceptionCode());
+      }
     }
+    if (pass.parameters && destroy) destroy(pass.parameters);
+    Drop(pass.input);
+    Drop(pass.output);
+    pass = {};
   }
   feature = nullptr;
-  if (parameters && destroy)
-    destroy(parameters);
   parameters = nullptr;
-  Drop(input);
-  Drop(output);
+  input = output = {};
   width = height = 0;
   images_general = false;
   failed = false;
@@ -250,7 +261,7 @@ uint32_t Create(VkCommandBuffer cmd, const PortNrOptions &options) {
     parameters->Set("InExposureScale", 1.f);
     parameters->Set("CreationNodeMask", 1u);
     parameters->Set("VisibilityNodeMask", 1u);
-    parameters->Set("DLSSNR.Hint.Render.Preset", 0u);
+    parameters->Set("DLSSNR.Hint.Render.Preset", unsigned(std::clamp(options.preset, 0, 3)));
     parameters->Set("DLSSNR.Style", unsigned(options.style));
     parameters->Set("DLSSNR.UseAutoMask", 1u);
     parameters->Set("DLSSNR.Intensity", options.intensity);
@@ -258,12 +269,19 @@ uint32_t Create(VkCommandBuffer cmd, const PortNrOptions &options) {
     parameters->Set("DLSSNR.LocalStructureStrength", options.structure);
     parameters->Set("DLSSNR.SkinStructureStrength", options.skin);
     result = create(cmd, 18, parameters, &feature);
+    if (result != 1 && options.preset != 0) {
+      Log("requested NR model failed; retrying runtime default", result);
+      if (feature) release(feature);
+      feature = nullptr;
+      parameters->Set("DLSSNR.Hint.Render.Preset", 0u);
+      result = create(cmd, 18, parameters, &feature);
+    }
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     result = GetExceptionCode();
   }
   return result;
 }
-int Evaluate(VkCommandBuffer cmd, const PortDlssEvaluate *frame,
+int EvaluatePass(VkCommandBuffer cmd, const PortDlssEvaluate *frame,
              const PortNrOptions *options) {
   if (!initialized || failed || !frame || !options)
     return 0;
@@ -286,7 +304,7 @@ int Evaluate(VkCommandBuffer cmd, const PortDlssEvaluate *frame,
                                             : VK_FORMAT_R8G8B8A8_UNORM;
     if (width < 320 || height < 192)
       return Fail("NR scene below minimum size", 0);
-    if (!Make(input) || !Make(output))
+    if ((!input.image && !Make(input)) || (!output.image && !Make(output)))
       return Fail("NR image allocation failed", 0);
     const auto result = Create(cmd, *options);
     if (result != 1 || !feature)
@@ -389,8 +407,26 @@ int Evaluate(VkCommandBuffer cmd, const PortDlssEvaluate *frame,
   return 1;
 }
 const char *Problem() { return problem; }
+int Evaluate(VkCommandBuffer cmd, const PortDlssEvaluate* frame,
+             const PortNrOptions* options) {
+  if (!options || !frame) return 0;
+  const int count = std::clamp(options->passes, 1, int(passes.size()));
+  // Each evaluation consumes the previous pass's result. Distinct feature
+  // handles keep each pass's history on the game's frame clock.
+  for (int i = 0; i < count; ++i) {
+    parameters = passes[i].parameters;
+    feature = passes[i].feature;
+    input = passes[i].input;
+    output = passes[i].output;
+    images_general = passes[i].images_general;
+    const int result = EvaluatePass(cmd, frame, options);
+    passes[i] = {parameters, feature, input, output, images_general};
+    if (!result) return 0;
+  }
+  return 1;
+}
 const PortNrApi api{Initialize, Evaluate, Release, Shutdown, Problem};
 } // namespace
-extern "C" __declspec(dllexport) const PortNrApi *PortNrGetApi() {
+extern "C" __declspec(dllexport) const PortNrApi *PortNrGetApiV3() {
   return &api;
 }

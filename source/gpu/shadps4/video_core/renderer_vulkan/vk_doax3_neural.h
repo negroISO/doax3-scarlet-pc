@@ -10,14 +10,16 @@ class Instance;
 class Scheduler;
 class Runtime;
 class CameraMotion;
+class SceneTargets;
+class TemporalUpscaler;
 
 // Native-resolution SDR, after the DOAX3 tone-map copy and before its UI.
 class Doax3Neural {
 public:
   Doax3Neural(const Instance &, Scheduler &, Runtime &,
-              VideoCore::TextureCache &, CameraMotion &);
+              VideoCore::TextureCache &, CameraMotion &, SceneTargets &);
   ~Doax3Neural();
-  void Record(VideoCore::ImageId color);
+  void Record(VideoCore::ImageId color, TemporalUpscaler &);
 
 private:
   const Instance &instance;
@@ -25,8 +27,13 @@ private:
   Runtime &runtime;
   VideoCore::TextureCache &textures;
   CameraMotion &camera;
+  SceneTargets &scenes;
   VideoCore::UniqueImage motion;
   vk::UniqueImageView motion_view;
+  VideoCore::UniqueImage dlss_input, dlss_output;
+  vk::UniqueImageView dlss_input_view, dlss_output_view;
+  u32 output_width = 0, output_height = 0;
+  int applied_nr_preset = -1, applied_nr_passes = -1;
   u32 width = 0, height = 0, dump_index = 0;
   u64 frames = 0;
   bool enabled = false, guides_only = false, initialized = false, noted = false;

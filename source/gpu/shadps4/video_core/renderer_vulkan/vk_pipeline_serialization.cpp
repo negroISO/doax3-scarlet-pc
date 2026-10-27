@@ -45,9 +45,9 @@ namespace Serialization {
 // keeps fs_interpolation; pipelines keep the per-vertex geometry shader (binary 12, meta 10, key 7).
 // The specialization key now records pre-lowering inputs. Old metadata can name
 // an injected clip input as though the game supplied it; permutation indices also change.
-static constexpr u32 ShaderBinaryVersion = 16u;
+static constexpr u32 ShaderBinaryVersion = 17u; // motion varyings leave room for built-ins
 static constexpr u32 ShaderMetaVersion = 12u;
-static constexpr u32 PipelineKeyVersion = 8u;
+static constexpr u32 PipelineKeyVersion = 9u;
 } // namespace Serialization
 
 namespace Vulkan {

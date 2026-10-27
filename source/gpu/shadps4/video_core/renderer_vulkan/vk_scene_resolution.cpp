@@ -423,7 +423,13 @@ vk::ImageView SceneTargets::View(Entry& e, const VideoCore::Image& original,
         ? (info.is_storage ? original.aspect_mask : vk::ImageAspectFlags(vk::ImageAspectFlagBits::eDepth))
         : vk::ImageAspectFlags(vk::ImageAspectFlagBits::eColor);
     const auto format = original.info.props.is_depth ? original.backing->image.image_ci.format : info.format;
+    auto usage = e.image.image_ci.usage;
+    if (!(Features(format) & vk::FormatFeatureFlagBits::eStorageImage)) {
+        usage &= ~vk::ImageUsageFlagBits::eStorage;
+    }
+    const vk::ImageViewUsageCreateInfo view_usage{.usage = usage};
     auto view = Check(instance.GetDevice().createImageViewUnique({
+        .pNext = &view_usage,
         .image = e.image, .viewType = vk::ImageViewType::e2D, .format = format,
         .components = LiverpoolToVK::ComponentMapping(info.mapping),
         .subresourceRange = {aspect,0,1,0,1},

@@ -246,7 +246,7 @@ int32_t NeuralAvailable() {
     state.nr_module = LoadLibraryExW(bridge.c_str(), nullptr,
         LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     const auto get_api = state.nr_module ? reinterpret_cast<PortNrGetApiFn>(
-        GetProcAddress(state.nr_module, "PortNrGetApi")) : nullptr;
+        GetProcAddress(state.nr_module, "PortNrGetApiV3")) : nullptr;
     state.nr = get_api ? get_api() : nullptr;
     if (!state.nr) {
         state.nr_problem = "port_nr.dll is absent or incompatible";
@@ -271,6 +271,10 @@ int32_t NeuralEvaluate(VkCommandBuffer command, const PortDlssEvaluate* frame,
 
 const char* NeuralProblem() { return state.nr_problem; }
 uint64_t NeuralFrames() { return state.nr_frames; }
+void NeuralRelease() {
+    if (state.nr) state.nr->Release();
+    state.nr_problem = state.nr ? state.nr->Problem() : "NR adapter unavailable";
+}
 
 void Shutdown() {
     if (state.nr) state.nr->Shutdown();
@@ -289,7 +293,7 @@ void Shutdown() {
 
 const PortDlssApi api{THEORDER_DLSS_BRIDGE_ABI, Configure,      InstanceExtensions, DeviceExtensions,
                     Initialize,             CreateFeature,  Evaluate,           ReleaseFeature,
-                    Shutdown, NeuralAvailable, NeuralEvaluate, NeuralProblem, NeuralFrames};
+                    Shutdown, NeuralAvailable, NeuralEvaluate, NeuralProblem, NeuralFrames, NeuralRelease};
 
 } // namespace
 

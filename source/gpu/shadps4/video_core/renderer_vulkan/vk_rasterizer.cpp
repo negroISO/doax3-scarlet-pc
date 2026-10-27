@@ -61,7 +61,7 @@ Rasterizer::Rasterizer(const Instance& instance_, Scheduler& scheduler_, Runtime
     object_motion = std::make_unique<ObjectMotion>(instance, scheduler);
     camera_motion = std::make_unique<CameraMotion>(instance, scheduler, texture_cache, runtime);
     camera_motion->SetObjectMotion(object_motion.get());
-    doax3_neural=std::make_unique<Doax3Neural>(instance,scheduler,runtime,texture_cache,*camera_motion);
+    doax3_neural=std::make_unique<Doax3Neural>(instance,scheduler,runtime,texture_cache,*camera_motion,*scene_targets);
     upscaler = std::make_unique<TemporalUpscaler>(instance, scheduler, texture_cache, runtime,
                                                   *camera_motion, *scene_targets);
     if (!EmulatorSettings.IsNullGPU()) {
@@ -291,6 +291,7 @@ void Rasterizer::PrepareRenderState(const GraphicsPipeline* pipeline) {
     gbuffer_draw = camera_motion->Enabled() && db_desc.first &&
         (camera_motion->UsesDoax3Constants() ? mrt_count == 4 : mrt_count >= 5);
     if (gbuffer_draw) {
+        if (camera_motion->UsesDoax3Constants()) upscaler->BeginDoax3Scene();
         camera_motion->OnGBufferPass(db_desc.first);
     }
     if (upscaler->Enabled() && cb_descs[0].first) {
@@ -1049,6 +1050,12 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
     }
     DiagPassBoundary(false);
     const auto& regs = Regs();
+    if (camera_motion->UsesDoax3Constants() && regs.color_buffers[0] &&
+        FrameCapture::IsDisplayBuffer(regs.color_buffers[0].Address())) {
+        const auto* ps = pipeline->GetStages()[u32(Shader::SwStage::Fragment)];
+        if (ps && ps->pgm_hash == 0x5921d2a8 && regs.num_indices == 3)
+            upscaler->BeginDoax3Copy(regs.color_buffers[0].Address());
+    }
     // port: the pass copying a finished frame to a display buffer; the previous draw's
     // target is that frame.
     if (camera_motion->Enabled() && regs.color_buffers[0] &&
@@ -1252,9 +1259,9 @@ void Rasterizer::DrawRecord(const GraphicsPipeline* pipeline, const PreparedDraw
         doax_ps && doax_ps->pgm_hash==0x5921d2a8 && num_indices==3 &&
         cb_descs[0].first && FrameCapture::IsDisplayBuffer(regs.color_buffers[0].Address())) {
         if (camera_motion->HasFrameCamera()) {
-            doax3_neural->Record(cb_descs[0].first);
+            doax3_neural->Record(cb_descs[0].first, *upscaler);
             camera_motion->OnDisplayPass({});
-            camera_motion->SetJitter({0,0});
+            // The next G-buffer starts the DOAX3 scene and advances its jitter.
             object_motion->OnFrameStart();
         }
         // DOAX3 writes many UI draws to the display buffer. Count the calibrated

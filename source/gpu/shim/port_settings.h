@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // port: user settings changed at run time from the in-game menu (port_overlay.h) and kept
-// in theorder.ini (THEORDER_CONFIG overrides the path). Environment variables override the file at
+// in graphics.ini (THEORDER_CONFIG overrides the path). Environment variables override the file at
 // start. Readers load the atomics every frame; writers are the menu and Load().
 
 #pragma once
@@ -28,7 +28,7 @@ inline constexpr int OutputDefault = 1; ///< 1920x1080, the game's own size
 inline constexpr int MenuTabCount = 3;
 
 struct Values {
-    std::atomic<int> upscaler{UpscalerFsr3};
+    std::atomic<int> upscaler{UpscalerOff};
     std::atomic<int> preset{NativeAA};
     std::atomic<bool> sharpen{true};
     std::atomic<float> sharpness{0.3f};
@@ -96,10 +96,16 @@ struct Values {
     /// DLSS (port_dlss.dll, NVIDIA RTX) is ready, or why not (null before the device exists).
     std::atomic<bool> dlss_supported{false};
     std::atomic<const char*> dlss_problem{nullptr};
+    /// DOAX3's pre-UI scene path. Settings are read at frame boundaries.
+    std::atomic<bool> doax3_scene{false};
+    std::atomic<int> dlss_model{0}; ///< NGX hint: default0, J10, K11, L12, M13.
+    std::atomic<bool> neural{false};
+    std::atomic<int> nr_preset{0}, nr_style{0}, nr_passes{1}, nr_strength{100};
+    std::atomic<const char*> neural_problem{nullptr};
 
     /// Startup settings for the explicit THEORDER_RENDER_RES compatibility patch only.
     int startup_preset = NativeAA;
-    int startup_upscaler = UpscalerFsr3;
+    int startup_upscaler = UpscalerOff;
     bool startup_object_motion = true;
     int startup_output_res = OutputDefault;
     int startup_live_resolution = 0;

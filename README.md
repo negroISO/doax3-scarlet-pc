@@ -64,8 +64,12 @@ existing save/cache is needed.
 
 Use **Launch-DOAX3-Scarlet-NR.cmd** only after completing the optional
 [neural-rendering setup](docs/neural-rendering.md). Both launchers use this
-repository's user/ saves and persistent cache, native 1920×1080, async shaders,
-30 FPS cap and 60 Hz guest vblank. **No frame generation.** A different scene or
+repository's user/ saves and persistent cache. Defaults are native 1920×1080,
+async shaders, 30 FPS and normal 60 Hz guest vblank. **No frame generation or
+60 FPS gameplay hack.** Open **Insert / R3+L2** for live DLSS/NR, sharpening and
+output resolution controls, saved in **user/graphics.ini**.
+[Graphics menu and adapter update instructions](docs/graphics-menu.md).
+A different scene or
 draw-state combination can still compile on first use.
 
 ## Where the optional DLSS5/NR files go

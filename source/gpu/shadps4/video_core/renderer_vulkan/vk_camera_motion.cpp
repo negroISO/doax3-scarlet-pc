@@ -59,7 +59,7 @@ CameraMotion::CameraMotion(const Instance& instance_, Scheduler& scheduler_,
     doax3 = UsesDoax3SceneLayout(Common::ElfInfo::Instance().GameSerial());
     // The upscaler can be switched on from the menu at any time: the camera is always tracked
     // unless THEORDER_UPSCALER=none.
-    for_upscaler = !(upscaler && std::strcmp(upscaler, "none") == 0);
+    for_upscaler = doax3 || !(upscaler && std::strcmp(upscaler, "none") == 0);
     if (const char* nr = std::getenv("THEORDER_NEURAL"); nr && nr[0] == '1') {
         for_upscaler = true;
     }

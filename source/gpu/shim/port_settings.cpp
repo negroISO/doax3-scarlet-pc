@@ -3,6 +3,7 @@
 #include "port_graphics.h"
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <cstdio>
 #include <cstdlib>
@@ -16,7 +17,7 @@ namespace {
 
 const char* Path() {
     const char* env = std::getenv("THEORDER_CONFIG");
-    return env && env[0] ? env : "theorder.ini";
+    return env && env[0] ? env : "graphics.ini";
 }
 
 float Clamp(float v, float lo, float hi) {
@@ -56,6 +57,7 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         return;
     }
     if (key == "upscaler") {
+        if (value == "none") v.upscaler = UpscalerOff;
         for (int u = 0; u < UpscalerCount; ++u) {
             if (value == UpscalerName(u)) {
                 v.upscaler = u;
@@ -63,6 +65,18 @@ void Set(Values& v, const std::string& key, const std::string& value) {
         }
     } else if (key == "preset") {
         v.preset = std::clamp(i, 0, PresetCount - 1);
+    } else if (key == "dlss_model") {
+        v.dlss_model = i >= 10 && i <= 13 ? i : 0;
+    } else if (key == "neural") {
+        v.neural = i != 0;
+    } else if (key == "nr_preset") {
+        v.nr_preset = std::clamp(i, 0, 3);
+    } else if (key == "nr_style") {
+        v.nr_style = std::clamp(i, 0, 2);
+    } else if (key == "nr_passes") {
+        v.nr_passes = std::clamp(i, 1, 3);
+    } else if (key == "nr_strength") {
+        v.nr_strength = std::clamp(i, 0, 100);
     } else if (key == "sharpen") {
         v.sharpen = i != 0;
     } else if (key == "sharpness") {
@@ -180,6 +194,11 @@ void Load() {
         }
     }
     v.startup_preset = v.preset;
+    if (const char* neural = std::getenv("THEORDER_NEURAL")) v.neural = std::atoi(neural) != 0;
+    if (const char* strength = std::getenv("THEORDER_NR_STRENGTH")) {
+        const float value = std::strtof(strength, nullptr);
+        if (std::isfinite(value)) v.nr_strength = int(std::clamp(value, 0.f, 1.f) * 100.f);
+    }
     v.startup_upscaler = v.upscaler;
     v.startup_object_motion = v.object_motion;
     v.startup_output_res = v.output_res;
@@ -223,9 +242,10 @@ void ConfigureDlssSupport(bool available, const char* problem) {
     kept = problem ? problem : "";
     v.dlss_problem = available || kept.empty() ? nullptr : kept.c_str();
     if (v.upscaler == UpscalerDlss && !available) {
-        std::printf("Upscaler: DLSS unavailable (%s); falling back to FSR 3.1\n",
-                    kept.empty() ? "port_dlss.dll or nvngx_dlss.dll missing" : kept.c_str());
-        v.upscaler = UpscalerFsr3;
+        std::printf("Upscaler: DLSS unavailable (%s); falling back to %s\n",
+                    kept.empty() ? "port_dlss.dll or nvngx_dlss.dll missing" : kept.c_str(),
+                    v.doax3_scene ? "native rendering" : "FSR 3.1");
+        v.upscaler = v.doax3_scene ? UpscalerOff : UpscalerFsr3;
     }
 }
 
@@ -268,6 +288,9 @@ void Save() {
                  v.debug_view.load(), int(v.show_fps.load()),
                  int(v.fsr4_auto_exposure.load()), int(v.fsr4_invert_jitter.load()));
     std::fprintf(file, "output_res=%dx%d\n", OutputWidths[v.output_res], OutputHeights[v.output_res]);
+    std::fprintf(file, "dlss_model=%d\nneural=%d\nnr_preset=%d\nnr_style=%d\nnr_passes=%d\nnr_strength=%d\n",
+                 v.dlss_model.load(), int(v.neural.load()), v.nr_preset.load(), v.nr_style.load(),
+                 v.nr_passes.load(), v.nr_strength.load());
     std::fprintf(file,
                  "overlay_fps=%d\noverlay_frametime=%d\noverlay_upscaler=%d\noverlay_gpu=%d\n"
                  "overlay_cpu=%d\noverlay_ram=%d\noverlay_vram=%d\noverlay_scale=%d\noverlay_corner=%d\n"

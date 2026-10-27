@@ -1283,6 +1283,8 @@ bool PipelineCache::RefreshGraphicsKey(PipelineSelection& sel) {
         }
         const bool doax3 = UsesDoax3SceneLayout(Common::ElfInfo::Instance().GameSerial());
         motion_possible = Shader::MotionVectors::positions_address != 0 &&
+                          (!doax3 || PortSettings::Get().neural ||
+                           PortSettings::Get().upscaler == PortSettings::UpscalerDlss) &&
                           (doax3 ? bound == 4 : bound >= 5) &&
                           !regs.color_buffers[Shader::MotionVectors::Output] &&
                           regs.depth_buffer.DepthValid() &&
@@ -1361,6 +1363,18 @@ bool PipelineCache::RefreshGraphicsKey(PipelineSelection& sel) {
         }();
         if (all_motion) {
             sel.motion = true;
+        }
+        // Reserve the motion varyings without colliding with game attributes,
+        // including the optional one-location clip-distance emulation shift.
+        if (sel.motion) {
+            const auto* fs = sel.infos[static_cast<u32>(Shader::SwStage::Fragment)];
+            for (u32 i = Shader::MotionVectors::CurrentLocation - 1; i < Shader::IR::NumParams; ++i) {
+                const Shader::IR::Attribute parameter{Shader::IR::Attribute::Param0 + i};
+                if ((vs && vs->stores.GetAny(parameter)) || (fs && fs->loads.GetAny(parameter))) {
+                    sel.motion = false;
+                    break;
+                }
+            }
         }
         if (sel.motion && !RefreshGraphicsStages(sel)) {
             return false;
