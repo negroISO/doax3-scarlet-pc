@@ -60,12 +60,15 @@ struct GraphicsPipelineKey {
     };
 
     GraphicsPipelineKey() {
-        std::memset(this, 0, sizeof(*this));
+        // Key hashing and comparison intentionally cover every byte, padding included, so the
+        // object is treated as a byte buffer; the explicit cast documents that intent (and the
+        // type is non-trivially-copyable only because of the copy operations below).
+        std::memset(static_cast<void*>(this), 0, sizeof(*this));
     }
     // port: hash and == read every byte, padding included; a member-wise copy may leave the
     // padding of the copy unset (the warm-up published copies the game never found).
     GraphicsPipelineKey(const GraphicsPipelineKey& other) {
-        std::memcpy(this, &other, sizeof(*this));
+        std::memcpy(static_cast<void*>(this), &other, sizeof(*this));
     }
     GraphicsPipelineKey& operator=(const GraphicsPipelineKey& other) {
         std::memcpy(static_cast<void*>(this), &other, sizeof(*this));

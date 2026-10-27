@@ -66,8 +66,15 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, const char* title) : width{width_}
     if (driver && !std::strcmp(driver, "windows")) {
         window_info.type = WindowSystemType::Windows;
         window_info.render_surface = SDL_GetPointerProperty(wp, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
-        // Use the executable's Scarlet icon for the title bar and taskbar too.
+        // port: vkCreateWin32SurfaceKHR requires the instance handle
+        // (VUID-VkWin32SurfaceCreateInfoKHR-hinstance-01307).
+        window_info.display_connection = SDL_GetPointerProperty(wp, SDL_PROP_WINDOW_WIN32_INSTANCE_POINTER, nullptr);
         const auto hwnd = static_cast<HWND>(window_info.render_surface);
+        if (!window_info.display_connection && hwnd && IsWindow(hwnd)) {
+            window_info.display_connection = reinterpret_cast<void*>(GetWindowLongPtrW(hwnd, GWLP_HINSTANCE));
+        }
+        ASSERT_MSG(window_info.display_connection, "Failed to obtain HINSTANCE for SDL Win32 window");
+        // Use the executable's Scarlet icon for the title bar and taskbar too.
         if (const auto icon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1))) {
             SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
             SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));

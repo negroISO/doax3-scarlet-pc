@@ -74,10 +74,6 @@ public:
         return extent;
     }
 
-    [[nodiscard]] vk::Semaphore GetImageAcquiredSemaphore() const {
-        return image_acquired[frame_index];
-    }
-
     [[nodiscard]] vk::Semaphore GetPresentReadySemaphore() const {
         return present_ready[image_index];
     }
@@ -129,8 +125,11 @@ private:
     vk::CompositeAlphaFlagBitsKHR composite_alpha;
     std::vector<vk::Image> images;
     std::vector<vk::ImageView> images_view;
-    std::vector<vk::Semaphore> image_acquired;
     std::vector<vk::Semaphore> present_ready;
+    /// port: one acquire fence per frame slot. AcquireNextImage() waits it on the host before the
+    /// image is used, which makes "the previous presentation of this image has finished" explicit
+    /// (synchronization validation cannot follow the rotating acquire semaphore instead).
+    std::vector<vk::Fence> acquire_fence;
     u32 width = 0;
     u32 height = 0;
     u32 image_count = 0;

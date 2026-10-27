@@ -1243,7 +1243,8 @@ bool PipelineCache::SkippableDispatch(const Shader::Info& info) const {
 }
 
 bool PipelineCache::RefreshGraphicsKey(PipelineSelection& sel) {
-    std::memset(&sel.graphics_key, 0, sizeof(GraphicsPipelineKey));
+    // Byte-wise reset, matching GraphicsPipelineKey's byte-wise hash and comparison.
+    std::memset(static_cast<void*>(&sel.graphics_key), 0, sizeof(GraphicsPipelineKey));
     const auto& regs = (*sel.regs);
     auto& key = sel.graphics_key;
 

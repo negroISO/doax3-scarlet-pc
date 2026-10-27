@@ -713,7 +713,6 @@ void Presenter::PresentLoadingFrame() {
     barrier(vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR,
             vk::AccessFlagBits::eColorAttachmentWrite, {});
     SubmitInfo info{};
-    info.AddWait(swapchain.GetImageAcquiredSemaphore());
     info.AddSignal(swapchain.GetPresentReadySemaphore());
     present_scheduler.Flush(info);
     {
@@ -878,7 +877,6 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame, bool is_game_frame)
     // Flush vulkan commands.
 
     SubmitInfo info{};
-    info.AddWait(swapchain.GetImageAcquiredSemaphore());
     info.AddWait(frame->ready_semaphore, frame->ready_tick);
     info.AddSignal(swapchain.GetPresentReadySemaphore());
     info.AddSignal(frame->present_done);
